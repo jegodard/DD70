@@ -254,8 +254,12 @@ class DD70RemapperWithSynth:
     
     def run(self):
         """Boucle principale de remapping"""
-        if not self.input_port or not self.synth_port:
-            print("✗ Ports MIDI non connectés")
+        if not self.input_port:
+            print("✗ Port MIDI d'entrée non connecté")
+            return
+        
+        if not self.fluidsynth_process or self.fluidsynth_process.poll() is not None:
+            print("✗ FluidSynth n'est pas en cours d'exécution")
             return
         
         print("\n" + "="*50)
@@ -272,10 +276,10 @@ class DD70RemapperWithSynth:
                 # Remapper le message
                 new_msg = self.process_message(msg)
                 
-                # Envoyer au synthétiseur
-                self.synth_port.send(new_msg)
+                # Envoyer à FluidSynth via stdin
+                self.send_midi_to_fluidsynth(new_msg)
                 
-                # Debug (optionnel - commentez ces lignes pour moins de verbosité)
+                # Debug
                 if msg.type in ['note_on'] and msg.velocity > 0:
                     if msg.note != new_msg.note:
                         print(f"🥁 Remap: Note {msg.note} -> {new_msg.note} (velocity: {msg.velocity})")
@@ -293,11 +297,13 @@ class DD70RemapperWithSynth:
             self.input_port.close()
             print("✓ Port d'entrée fermé")
             
-        if self.synth_port:
-            self.synth_port.close()
-            print("✓ Port de sortie fermé")
-            
         if self.fluidsynth_process:
+            try:
+                self.send_fluid_command("quit")
+                time.sleep(0.5)
+            except:
+                pass
+            
             self.fluidsynth_process.terminate()
             try:
                 self.fluidsynth_process.wait(timeout=5)
