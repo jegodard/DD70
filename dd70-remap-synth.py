@@ -22,6 +22,7 @@ import subprocess
 import os
 import signal
 import sys
+import re
 
 # Mapping MIDI par défaut DD-70 (à vérifier sur votre module)
 DEFAULT_MAPPING = {
@@ -127,6 +128,25 @@ class DD70RemapperWithSynth:
             print(f"✗ Erreur au démarrage de FluidSynth: {e}")
             return False
     
+    def get_fluidsynth_port(self):
+        """Trouve le port FluidSynth en utilisant aconnect"""
+        try:
+            result = subprocess.run(['aconnect', '-l'], capture_output=True, text=True)
+            output = result.stdout
+            
+            # Chercher le client FluidSynth
+            # Format: "client 128: 'FLUID Synth (3613)' [type=user,pid=3613]"
+            match = re.search(r"client (\d+): 'FLUID Synth", output)
+            if match:
+                client_id = match.group(1)
+                # Le port est généralement 0
+                port_name = f"{client_id}:0"
+                return port_name
+            return None
+        except Exception as e:
+            print(f"Erreur lors de la recherche du port FluidSynth: {e}")
+            return None
+    
     def list_ports(self):
         """Liste tous les ports MIDI disponibles"""
         print("=== Ports MIDI d'entrée disponibles ===")
@@ -136,6 +156,16 @@ class DD70RemapperWithSynth:
         print("\n=== Ports MIDI de sortie disponibles ===")
         for i, port in enumerate(mido.get_output_names()):
             print(f"{i}: {port}")
+        
+        # Vérifier aussi avec aconnect pour FluidSynth
+        print("\n=== Vérification FluidSynth avec aconnect ===")
+        try:
+            result = subprocess.run(['aconnect', '-l'], capture_output=True, text=True)
+            for line in result.stdout.split('\n'):
+                if 'FLUID' in line or 'client' in line:
+                    print(line)
+        except:
+            pass
     
     def connect(self, input_name=None, synth_name=None):
         """Connecte aux ports MIDI"""
@@ -154,17 +184,31 @@ class DD70RemapperWithSynth:
             
             # Trouver le port FluidSynth
             if synth_name is None:
+                # Essayer de trouver dans les ports mido
                 for port in output_ports:
                     if 'FLUID' in port.upper():
                         synth_name = port
                         break
+                
+                # Si pas trouvé, chercher avec aconnect et utiliser le numéro de port ALSA
                 if synth_name is None:
-                    print("✗ Port FluidSynth non trouvé!")
-                    print("Ports disponibles:", output_ports)
-                    return False
+                    fluid_port = self.get_fluidsynth_port()
+                    if fluid_port:
+                        print(f"FluidSynth trouvé via aconnect: {fluid_port}")
+                        synth_name = fluid_port
+                    else:
+                        print("✗ Port FluidSynth non trouvé!")
+                        print("Ports mido disponibles:", output_ports)
+                        return False
             
             self.input_port = mido.open_input(input_name)
-            self.synth_port = mido.open_output(synth_name)
+            
+            # Ouvrir le port de sortie (peut être un nom ou un numéro ALSA comme "128:0")
+            try:
+                self.synth_port = mido.open_output(synth_name)
+            except Exception as e:
+                print(f"✗ Impossible d'ouvrir le port {synth_name}: {e}")
+                return False
             
             print(f"✓ Connecté à l'entrée: {input_name}")
             print(f"✓ Connecté au synthé: {synth_name}")
