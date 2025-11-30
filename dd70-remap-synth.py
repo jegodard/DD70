@@ -85,12 +85,14 @@ class DD70RemapperWithSynth:
         try:
             # Démarrer FluidSynth
             # -a alsa : sortie audio ALSA
-            # -g 1.5 : gain (volume)
+            # -m alsa_seq : créer un port MIDI pour recevoir les notes
+            # -g 2.0 : gain (volume)
             # -r 48000 : sample rate
             # -o audio.alsa.device=hw:0 : sortie vers jack audio du Pi
             cmd = [
                 'fluidsynth',
                 '-a', 'alsa',
+                '-m', 'alsa_seq',  # Active le serveur MIDI ALSA
                 '-g', '2.0',  # Gain augmenté pour meilleur volume
                 '-r', '48000',
                 '-o', 'audio.alsa.device=hw:0',
@@ -107,8 +109,8 @@ class DD70RemapperWithSynth:
                 stdin=subprocess.PIPE
             )
             
-            # Attendre que FluidSynth démarre
-            time.sleep(2)
+            # Attendre que FluidSynth démarre et crée son port MIDI
+            time.sleep(3)
             
             if self.fluidsynth_process.poll() is None:
                 print(f"✓ FluidSynth démarré avec {soundfont}")
@@ -153,12 +155,13 @@ class DD70RemapperWithSynth:
             # Trouver le port FluidSynth
             if synth_name is None:
                 for port in output_ports:
-                    if 'FLUID' in port.upper() or 'Synth' in port:
+                    if 'FLUID' in port.upper():
                         synth_name = port
                         break
-                if synth_name is None and output_ports:
-                    # Utiliser le premier port disponible
-                    synth_name = output_ports[0]
+                if synth_name is None:
+                    print("✗ Port FluidSynth non trouvé!")
+                    print("Ports disponibles:", output_ports)
+                    return False
             
             self.input_port = mido.open_input(input_name)
             self.synth_port = mido.open_output(synth_name)
