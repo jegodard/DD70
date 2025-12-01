@@ -116,9 +116,19 @@ class DD70RemapperNoLatency:
                     if msg.velocity > 0:
                         print("🦶 Pédale ENFONCÉE (Note 44)")
                         self.hihat_openness = 0  # Fermé
-                    # Note: Le DD-70 envoie NoteOff (vel=0) immédiatement après, 
-                    # donc on ne peut pas l'utiliser pour détecter le relâchement.
-                    # Il nous manque le signal de "relâchement" de la pédale.
+
+                # 3. DÉDUCTION via le Pad Central (Hi-Hat d'origine)
+                # Si on reçoit une note 42 (Closed HH), c'est que la pédale est fermée
+                # Si on reçoit une note 46 (Open HH), c'est que la pédale est ouverte
+                elif msg.type == 'note_on' and msg.note == 42:
+                    if self.hihat_openness != 0:
+                        print("💡 Déduction via Pad Central: Pédale FERMÉE")
+                    self.hihat_openness = 0
+                elif msg.type == 'note_on' and msg.note == 46:
+                    if self.hihat_openness != 127:
+                        print("💡 Déduction via Pad Central: Pédale OUVERTE")
+                    self.hihat_openness = 127
+
 
                 
                 new_msg = self.remap(msg)
