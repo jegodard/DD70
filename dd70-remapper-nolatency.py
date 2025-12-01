@@ -21,7 +21,7 @@ class DD70RemapperNoLatency:
     def __init__(self):
         self.input_port = None
         self.output_port = None
-        self.hihat_openness = 0  # État de la pédale (0 = fermé, 127 = ouvert)
+        self.hihat_openness = 127  # État par défaut : OUVERT (Pédale relâchée)
     
     def connect(self):
         """Connecte les ports MIDI"""
@@ -111,11 +111,14 @@ class DD70RemapperNoLatency:
                     print(f"🎛️  CC#4 DETECTÉ ! Valeur = {msg.value}")
                     self.hihat_openness = msg.value
                 
-                # 2. Via Note On 44 (Pédale Chick) - Solution de secours ?
-                elif msg.type == 'note_on' and msg.note == 44 and msg.velocity > 0:
-                    print("🦶 Pédale appuyée (Note 44 détectée)")
-                    # On pourrait forcer l'état fermé ici, mais on ne sait pas quand ça s'ouvre...
-                    # self.hihat_openness = 0 
+                # 2. Via Note On 44 (Pédale Chick)
+                elif msg.type == 'note_on' and msg.note == 44:
+                    if msg.velocity > 0:
+                        print("🦶 Pédale ENFONCÉE (Note 44)")
+                        self.hihat_openness = 0  # Fermé
+                    # Note: Le DD-70 envoie NoteOff (vel=0) immédiatement après, 
+                    # donc on ne peut pas l'utiliser pour détecter le relâchement.
+                    # Il nous manque le signal de "relâchement" de la pédale.
 
                 
                 new_msg = self.remap(msg)
