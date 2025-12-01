@@ -81,7 +81,6 @@ class DD70RemapperNoLatency:
             if new_note != msg.note:
                 return msg.copy(note=new_note)
         
-        return msgturn msg.copy(note=new_note)
         return msg
     
     def run(self):
