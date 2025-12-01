@@ -23,6 +23,23 @@ class DD70RemapperNoLatency:
         self.output_port = None
         self.hihat_openness = 127  # État par défaut : OUVERT (Pédale relâchée)
     
+    def send_nrpn_volume(self, note, volume):
+        """Envoie une commande NRPN pour changer le volume d'une note spécifique"""
+        # Standard Medeli/Yamaha Drum Instrument Volume:
+        # NRPN MSB (99) = 24 (0x18)
+        # NRPN LSB (98) = Note
+        # Data Entry (6) = Volume
+        
+        # On envoie sur le canal 10 (index 9)
+        chan = 9
+        self.output_port.send(mido.Message('control_change', channel=chan, control=99, value=24))
+        self.output_port.send(mido.Message('control_change', channel=chan, control=98, value=note))
+        self.output_port.send(mido.Message('control_change', channel=chan, control=6, value=volume))
+        
+        # Reset NRPN (Bonne pratique)
+        self.output_port.send(mido.Message('control_change', channel=chan, control=99, value=127))
+        self.output_port.send(mido.Message('control_change', channel=chan, control=98, value=127))
+
     def connect(self):
         """Connecte les ports MIDI"""
         input_ports = mido.get_input_names()
@@ -52,12 +69,13 @@ class DD70RemapperNoLatency:
             self.input_port = mido.open_input(dd70_in)
             self.output_port = mido.open_output(dd70_out)
             
-            # Tenter de désactiver le Local Control automatiquement
-            # CC#122 = Local Control. Valeur 0 = OFF.
-            # On l'envoie sur le canal 10 (index 9) qui est le standard batterie, et le canal 1 (index 0)
-            print("  ⚙️  Envoi de la commande MIDI 'Local Control OFF'...")
-            self.output_port.send(mido.Message('control_change', channel=9, control=122, value=0))
-            self.output_port.send(mido.Message('control_change', channel=0, control=122, value=0))
+            print("  ⚙️  Tentative de coupure du volume local via NRPN...")
+            # On met le volume à 0 pour les notes qu'on va remapper
+            # ATTENTION: Si le volume est partagé entre le Pad et le MIDI IN, cela coupera tout son !
+            # Dans ce cas, il faudra trouver une autre stratégie (changer de note cible).
+            notes_to_mute = [38, 40, 42, 46, 44]
+            for note in notes_to_mute:
+                self.send_nrpn_volume(note, 0)
             
             print(f"✓ DD-70 connecté en boucle interne")
             print(f"  Entrée : {dd70_in}")
@@ -153,6 +171,12 @@ class DD70RemapperNoLatency:
     
     def cleanup(self):
         """Nettoyage"""
+        if self.output_port:
+            print("\n  🧹 Restauration des volumes...")
+            notes_to_restore = [38, 40, 42, 46, 44]
+            for note in notes_to_restore:
+                self.send_nrpn_volume(note, 127)
+                
         if self.input_port:
             self.input_port.close()
         if self.output_port:
