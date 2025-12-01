@@ -101,9 +101,14 @@ class DD70RemapperNoLatency:
         
         try:
             for msg in self.input_port:
-                # DEBUG: Afficher tous les messages
-                if msg.type == 'control_change':
-                    print(f"🎛️  CC#{msg.control} = {msg.value} (pédale={self.hihat_openness})")
+                # DEBUG: Afficher TOUS les messages (sauf horloge) pour trouver la pédale
+                if msg.type not in ['clock', 'active_sensing']:
+                    print(f"📥 {msg}")
+
+                # Gestion de la pédale charleston (Control Change CC#4)
+                if msg.type == 'control_change' and msg.control == 4:
+                    print(f"🎛️  CC#4 DETECTÉ ! Valeur = {msg.value}")
+                    self.hihat_openness = msg.value
                 
                 new_msg = self.remap(msg)
                 self.output_port.send(new_msg)
