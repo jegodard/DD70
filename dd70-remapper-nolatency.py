@@ -51,6 +51,14 @@ class DD70RemapperNoLatency:
         try:
             self.input_port = mido.open_input(dd70_in)
             self.output_port = mido.open_output(dd70_out)
+            
+            # Tenter de désactiver le Local Control automatiquement
+            # CC#122 = Local Control. Valeur 0 = OFF.
+            # On l'envoie sur le canal 10 (index 9) qui est le standard batterie, et le canal 1 (index 0)
+            print("  ⚙️  Envoi de la commande MIDI 'Local Control OFF'...")
+            self.output_port.send(mido.Message('control_change', channel=9, control=122, value=0))
+            self.output_port.send(mido.Message('control_change', channel=0, control=122, value=0))
+            
             print(f"✓ DD-70 connecté en boucle interne")
             print(f"  Entrée : {dd70_in}")
             print(f"  Sortie : {dd70_out}")
