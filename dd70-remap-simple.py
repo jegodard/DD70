@@ -28,21 +28,40 @@ class SimpleRemapper:
     def start_timidity(self):
         """Démarre Timidity en mode ALSA"""
         print("Démarrage de Timidity...")
+        
+        # Vérifier qu'il n'y a pas déjà un Timidity qui tourne
         try:
-            # Timidity en mode serveur ALSA
-            self.timidity_process = subprocess.Popen(
-                ['timidity', '-iA', '-B2,8', '-Os', '-o', 'alsa'],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
+            result = subprocess.run(['pgrep', 'timidity'], capture_output=True)
+            if result.returncode == 0:
+                print("⚠️  Timidity déjà en cours. Arrêt...")
+                subprocess.run(['pkill', 'timidity'])
+                time.sleep(1)
+        except:
+            pass
+        
+        try:
+            # Démarrer en arrière-plan avec nohup
+            with open('/tmp/timidity.log', 'w') as log:
+                self.timidity_process = subprocess.Popen(
+                    ['timidity', '-iA'],
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL
+                )
+            
             time.sleep(3)  # Attendre le démarrage
             
+            # Vérifier que le processus tourne
             if self.timidity_process.poll() is None:
-                print("✓ Timidity démarré")
+                print("✓ Timidity démarré (PID:", self.timidity_process.pid, ")")
                 return True
             else:
-                print("✗ Timidity n'a pas démarré")
+                print("✗ Timidity s'est arrêté")
+                print("Voir les logs: cat /tmp/timidity.log")
+                with open('/tmp/timidity.log', 'r') as f:
+                    print(f.read())
                 return False
+                
         except FileNotFoundError:
             print("✗ Timidity non installé!")
             print("Installez: sudo apt-get install timidity")

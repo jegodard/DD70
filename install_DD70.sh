@@ -22,7 +22,7 @@ echo "==== Création du script dd70.py ===="
 cat << 'EOF' > /home/pi/dd70/dd70.py
 from mididings import *
 import time
-
+/opt/dd70-remap/venv/bin/python3 dd70-remap-simple.py
 # Auto-detection de la DD-70
 dd = None
 for d in list_devices():
