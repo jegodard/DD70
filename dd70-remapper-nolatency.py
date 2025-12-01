@@ -79,12 +79,22 @@ class DD70RemapperNoLatency:
                     new_note = 42  # Valeur basse -> Charleston fermée
                 else:
                     new_note = 46  # Valeur haute -> Charleston ouverte
-                return msg.copy(note=new_note)
+                
+                # Boost de volume pour compenser la perte
+                new_vel = msg.velocity
+                if msg.type == 'note_on' and msg.velocity > 0:
+                    new_vel = min(127, int(msg.velocity * 1.3 + 20))
+                
+                return msg.copy(note=new_note, velocity=new_vel)
             
             # Remapping standard pour les autres notes
             new_note = REMAP.get(msg.note, msg.note)
             if new_note != msg.note:
-                return msg.copy(note=new_note)
+                # Boost de volume pour compenser la perte
+                new_vel = msg.velocity
+                if msg.type == 'note_on' and msg.velocity > 0:
+                    new_vel = min(127, int(msg.velocity * 1.3 + 20))
+                return msg.copy(note=new_note, velocity=new_vel)
         
         return msg
     
