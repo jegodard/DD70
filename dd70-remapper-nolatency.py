@@ -21,6 +21,7 @@ class DD70RemapperNoLatency:
     def __init__(self):
         self.input_port = None
         self.output_port = None
+        self.hihat_openness = 0  # État de la pédale (0 = fermé, 127 = ouvert)
     
     def connect(self):
         """Connecte les ports MIDI"""
@@ -57,13 +58,30 @@ class DD70RemapperNoLatency:
         except Exception as e:
             print(f"✗ Erreur: {e}")
             return False
-    
     def remap(self, msg):
         """Remappe un message MIDI"""
+        # Gestion de la pédale charleston (Control Change CC#4)
+        if msg.type == 'control_change' and msg.control == 4:
+            self.hihat_openness = msg.value
+            return msg  # Passer le CC tel quel
+        
+        # Remapping des notes
         if msg.type in ['note_on', 'note_off']:
+            # Cas spécial: ancien pad caisse claire (38/40) → Charleston avec pédale
+            if msg.note in [38, 40]:
+                # Choisir charleston ouverte ou fermée selon la pédale
+                if self.hihat_openness > 64:
+                    new_note = 46  # Charleston ouverte
+                else:
+                    new_note = 42  # Charleston fermée
+                return msg.copy(note=new_note)
+            
+            # Remapping standard pour les autres notes
             new_note = REMAP.get(msg.note, msg.note)
             if new_note != msg.note:
                 return msg.copy(note=new_note)
+        
+        return msgturn msg.copy(note=new_note)
         return msg
     
     def run(self):
