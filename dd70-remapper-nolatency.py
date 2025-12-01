@@ -69,13 +69,15 @@ class DD70RemapperNoLatency:
         if msg.type in ['note_on', 'note_off']:
             # Cas spécial: ancien pad caisse claire (38/40) → Charleston avec pédale
             if msg.note in [38, 40]:
+                # DEBUG: Afficher l'état de la pédale lors de la frappe
+                print(f"👉 Frappe Pad (Note {msg.note}) | Pédale={self.hihat_openness}")
+                
                 # Choisir charleston ouverte ou fermée selon la pédale
-                # Logique : Pédale appuyée = Valeur haute (>64) = Fermé
-                #           Pédale relâchée = Valeur basse (<64) = Ouvert
-                if self.hihat_openness > 64:
-                    new_note = 42  # Pédale appuyée -> Charleston fermée
+                # Essai 3 : On remet la logique < 64 = Fermé (car l'essai 2 > 64 donnait "toujours ouvert")
+                if self.hihat_openness < 64:
+                    new_note = 42  # Valeur basse -> Charleston fermée
                 else:
-                    new_note = 46  # Pédale relâchée -> Charleston ouverte
+                    new_note = 46  # Valeur haute -> Charleston ouverte
                 return msg.copy(note=new_note)
             
             # Remapping standard pour les autres notes
