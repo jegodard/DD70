@@ -70,10 +70,11 @@ class DD70RemapperNoLatency:
             # Cas spécial: ancien pad caisse claire (38/40) → Charleston avec pédale
             if msg.note in [38, 40]:
                 # Choisir charleston ouverte ou fermée selon la pédale
+                # Note: Généralement CC#4 127=Fermé, 0=Ouvert
                 if self.hihat_openness > 64:
-                    new_note = 46  # Charleston ouverte
+                    new_note = 42  # Pédale appuyée -> Charleston fermée
                 else:
-                    new_note = 42  # Charleston fermée
+                    new_note = 46  # Pédale relâchée -> Charleston ouverte
                 return msg.copy(note=new_note)
             
             # Remapping standard pour les autres notes
@@ -91,17 +92,22 @@ class DD70RemapperNoLatency:
         print("  Charleston    : Pad bas gauche (ex-caisse claire)")
         print("  Caisse claire : Pad centre (ex-charleston)")
         print("\n  ⚡ Son généré par le DD-70 - AUCUNE LATENCE")
+        print("  🔍 Mode DEBUG: Tous les messages MIDI affichés")
         print("  Ctrl+C pour arrêter")
         print("="*60 + "\n")
         
         try:
             for msg in self.input_port:
+                # DEBUG: Afficher tous les messages
+                if msg.type == 'control_change':
+                    print(f"🎛️  CC#{msg.control} = {msg.value} (pédale={self.hihat_openness})")
+                
                 new_msg = self.remap(msg)
                 self.output_port.send(new_msg)
                 
                 if msg.type == 'note_on' and msg.velocity > 0:
                     if msg.note != new_msg.note:
-                        print(f"🥁 {msg.note} → {new_msg.note} (vel: {msg.velocity})")
+                        print(f"🥁 Note {msg.note} → {new_msg.note} (vel: {msg.velocity})")
                     
         except KeyboardInterrupt:
             print("\n\n✓ Arrêté")
