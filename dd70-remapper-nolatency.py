@@ -101,14 +101,22 @@ class DD70RemapperNoLatency:
         
         try:
             for msg in self.input_port:
-                # DEBUG: Afficher TOUS les messages (sauf horloge) pour trouver la pédale
-                if msg.type not in ['clock', 'active_sensing']:
+                # DEBUG: Afficher TOUS les messages pour analyse
+                if msg.type != 'clock':
                     print(f"📥 {msg}")
 
-                # Gestion de la pédale charleston (Control Change CC#4)
+                # Gestion de la pédale charleston
+                # 1. Via Control Change (Standard)
                 if msg.type == 'control_change' and msg.control == 4:
                     print(f"🎛️  CC#4 DETECTÉ ! Valeur = {msg.value}")
                     self.hihat_openness = msg.value
+                
+                # 2. Via Note On 44 (Pédale Chick) - Solution de secours ?
+                elif msg.type == 'note_on' and msg.note == 44 and msg.velocity > 0:
+                    print("🦶 Pédale appuyée (Note 44 détectée)")
+                    # On pourrait forcer l'état fermé ici, mais on ne sait pas quand ça s'ouvre...
+                    # self.hihat_openness = 0 
+
                 
                 new_msg = self.remap(msg)
                 self.output_port.send(new_msg)
