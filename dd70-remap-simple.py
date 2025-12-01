@@ -23,27 +23,51 @@ class SimpleRemapper:
     def __init__(self):
         self.input_port = None
         self.output_port = None
-        self.timidity_process = None
+        self.fluidsynth_process = None
         
-    def start_timidity(self):
-        """Démarre Timidity en mode ALSA"""
-        print("Démarrage de Timidity...")
-        
-        # Vérifier qu'il n'y a pas déjà un Timidity qui tourne
+    def set_audio_volume(self):
+        """Règle le volume audio à 100%"""
         try:
-            result = subprocess.run(['pgrep', 'timidity'], capture_output=True)
+            print("Réglage du volume audio...")
+            subprocess.run(['amixer', 'set', 'PCM', '100%'], 
+                          capture_output=True, check=False)
+            subprocess.run(['amixer', 'set', 'Headphone', '100%'], 
+                          capture_output=True, check=False)
+            print("✓ Volume réglé à 100%")
+        except Exception as e:
+            print(f"⚠️  Impossible de régler le volume: {e}")
+    
+    def start_fluidsynth(self):
+        """Démarre FluidSynth en mode ALSA avec faible latence"""
+        print("Démarrage de FluidSynth...")
+        
+        # Vérifier qu'il n'y a pas déjà un FluidSynth qui tourne
+        try:
+            result = subprocess.run(['pgrep', 'fluidsynth'], capture_output=True)
             if result.returncode == 0:
-                print("⚠️  Timidity déjà en cours. Arrêt...")
-                subprocess.run(['pkill', 'timidity'])
+                print("⚠️  FluidSynth déjà en cours. Arrêt...")
+                subprocess.run(['pkill', 'fluidsynth'])
                 time.sleep(1)
         except:
             pass
         
+        soundfont = '/usr/share/sounds/sf2/FluidR3_GM.sf2'
+        if not os.path.exists(soundfont):
+            print("✗ Banque de sons non trouvée!")
+            print("Installez: sudo apt-get install fluid-soundfont-gm")
+            return False
+        
         try:
-            # Démarrer en arrière-plan avec nohup
-            with open('/tmp/timidity.log', 'w') as log:
-                self.timidity_process = subprocess.Popen(
-                    ['timidity', '-iA'],
+            # Démarrer FluidSynth avec options faible latence
+            # -a alsa : sortie audio ALSA
+            # -m alsa_seq : serveur MIDI ALSA
+            # -g 3.0 : gain augmenté pour meilleur volume
+            # -z 512 : buffer audio réduit (moins de latence)
+            # -c 2 : 2 canaux audio
+            with open('/tmp/fluidsynth.log', 'w') as log:
+                self.fluidsynth_process = subprocess.Popen(
+                    ['fluidsynth', '-a', 'alsa', '-m', 'alsa_seq', 
+                     '-g', '3.0', '-z', '512', '-c', '2', soundfont],
                     stdout=log,
                     stderr=subprocess.STDOUT,
                     stdin=subprocess.DEVNULL
@@ -52,35 +76,35 @@ class SimpleRemapper:
             time.sleep(3)  # Attendre le démarrage
             
             # Vérifier que le processus tourne
-            if self.timidity_process.poll() is None:
-                print("✓ Timidity démarré (PID:", self.timidity_process.pid, ")")
+            if self.fluidsynth_process.poll() is None:
+                print("✓ FluidSynth démarré (PID:", self.fluidsynth_process.pid, ")")
                 return True
             else:
-                print("✗ Timidity s'est arrêté")
-                print("Voir les logs: cat /tmp/timidity.log")
-                with open('/tmp/timidity.log', 'r') as f:
+                print("✗ FluidSynth s'est arrêté")
+                print("Voir les logs: cat /tmp/fluidsynth.log")
+                with open('/tmp/fluidsynth.log', 'r') as f:
                     print(f.read())
                 return False
                 
         except FileNotFoundError:
-            print("✗ Timidity non installé!")
-            print("Installez: sudo apt-get install timidity")
+            print("✗ FluidSynth non installé!")
+            print("Installez: sudo apt-get install fluidsynth fluid-soundfont-gm")
             return False
         except Exception as e:
             print(f"✗ Erreur: {e}")
             return False
     
-    def find_timidity_port(self):
-        """Trouve le port Timidity dans la liste mido"""
+    def find_fluidsynth_port(self):
+        """Trouve le port FluidSynth dans la liste mido"""
         ports = mido.get_output_names()
         for port in ports:
-            if 'TiMidity' in port or 'timidity' in port.lower():
-                return port
-        return None
-    
-    def connect(self):
-        """Connecte les ports MIDI"""
-        # Trouver l'entrée (DD-70)
+            if 'FLUID' in port or 'Synth' in port:
+        # Trouver la sortie (FluidSynth)
+        output_name = self.find_fluidsynth_port()
+        if not output_name:
+            print("✗ Port FluidSynth non trouvé")
+            print("Ports disponibles:", mido.get_output_names())
+            return Falseée (DD-70)
         input_ports = mido.get_input_names()
         input_name = None
         
@@ -124,16 +148,16 @@ class SimpleRemapper:
             if new_note != msg.note:
                 return msg.copy(note=new_note)
         return msg
-    
-    def run(self):
-        """Boucle principale"""
-        print("\n" + "="*50)
-        print("REMAPPER ACTIF")
-        print("="*50)
-        print("Frappez les pads - vous devriez entendre le son!")
-        print("Ctrl+C pour arrêter")
-        print("="*50 + "\n")
-        
+    def cleanup(self):
+        """Nettoyage"""
+        if self.input_port:
+            self.input_port.close()
+        if self.output_port:
+            self.output_port.close()
+        if self.fluidsynth_process:
+            self.fluidsynth_process.terminate()
+            self.fluidsynth_process.wait()
+            print("✓ FluidSynth arrêté")
         try:
             for msg in self.input_port:
                 new_msg = self.remap(msg)
@@ -162,20 +186,24 @@ class SimpleRemapper:
 
 def main():
     print("="*50)
-    print("DD-70 REMAPPER SIMPLE")
+    print("DD-70 REMAPPER - FluidSynth Faible Latence")
     print("="*50 + "\n")
     
     remapper = SimpleRemapper()
     
-    if not remapper.start_timidity():
+    # Régler le volume audio
+    remapper.set_audio_volume()
+    print()
+    
+    if not remapper.start_fluidsynth():
         return 1
     
     if not remapper.connect():
         remapper.cleanup()
         return 1
     
-    print("\n💡 Branchez un casque sur le Pi")
-    print("   Volume audio réglé avec: amixer set PCM 100%\n")
+    print("\n💡 Casque branché sur le Raspberry Pi")
+    print("   Latence réduite avec FluidSynth\n")
     
     remapper.run()
     return 0
