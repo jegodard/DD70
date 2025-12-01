@@ -52,6 +52,12 @@ class DD70RemapperNoLatency:
             self.input_port = mido.open_input(dd70_in)
             self.output_port = mido.open_output(dd70_out)
             
+            # S'assurer que le volume du canal MIDI est au maximum
+            # Souvent le volume MIDI par défaut n'est pas à 100% sur les entrées
+            print("  🔊 Maximisation du volume MIDI (CC#7 et CC#11)...")
+            self.output_port.send(mido.Message('control_change', channel=9, control=7, value=127))
+            self.output_port.send(mido.Message('control_change', channel=9, control=11, value=127))
+            
             print(f"✓ DD-70 connecté en boucle interne")
             print(f"  Entrée : {dd70_in}")
             print(f"  Sortie : {dd70_out}")
