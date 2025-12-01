@@ -44,6 +44,11 @@ amixer set PCM 100% 2>/dev/null || echo "⚠️  Impossible de régler le volume
 
 # Création du service systemd pour démarrage automatique
 echo "[7/7] Configuration du service systemd..."
+
+# Détection de l'utilisateur (celui qui a lancé sudo ou l'utilisateur courant)
+SERVICE_USER=${SUDO_USER:-$(whoami)}
+echo "  -> Le service tournera sous l'utilisateur : $SERVICE_USER"
+
 sudo tee /etc/systemd/system/dd70-remap.service > /dev/null <<EOF
 [Unit]
 Description=DD-70 MIDI Pad Remapper (Zero Latency)
@@ -51,7 +56,7 @@ After=network.target sound.target
 
 [Service]
 Type=simple
-User=pi
+User=$SERVICE_USER
 WorkingDirectory=/opt/dd70-remap
 ExecStart=/opt/dd70-remap/venv/bin/python3 /opt/dd70-remap/dd70-remapper-nolatency.py
 Restart=on-failure
