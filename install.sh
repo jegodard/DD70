@@ -35,14 +35,10 @@ sudo /opt/dd70-remap/venv/bin/pip install mido python-rtmidi
 
 # Copie des scripts
 echo "[5/7] Installation des scripts..."
-sudo cp dd70-remap-synth.py /opt/dd70-remap/
-sudo chmod +x /opt/dd70-remap/dd70-remap-synth.py
-# Garder l'ancien script en backup
-if [ -f dd70-remap.py ]; then
-    sudo cp dd70-remap.py /opt/dd70-remap/dd70-remap-old.py
-fi
+sudo cp dd70-remapper-nolatency.py /opt/dd70-remap/
+sudo chmod +x /opt/dd70-remap/dd70-remapper-nolatency.py
 
-# Configuration audio - Volume du jack
+# Configuration audio - Volume du jack (plus nécessaire en mode no-latency mais utile au cas où)
 echo "[6/7] Configuration audio..."
 amixer set PCM 100% 2>/dev/null || echo "⚠️  Impossible de régler le volume automatiquement"
 
@@ -50,22 +46,17 @@ amixer set PCM 100% 2>/dev/null || echo "⚠️  Impossible de régler le volume
 echo "[7/7] Configuration du service systemd..."
 sudo tee /etc/systemd/system/dd70-remap.service > /dev/null <<EOF
 [Unit]
-Description=DD-70 MIDI Pad Remapper with FluidSynth
+Description=DD-70 MIDI Pad Remapper (Zero Latency)
 After=network.target sound.target
-Wants=sound.target
 
 [Service]
 Type=simple
 User=pi
 WorkingDirectory=/opt/dd70-remap
-ExecStart=/opt/dd70-remap/venv/bin/python3 /opt/dd70-remap/dd70-remap-synth.py
+ExecStart=/opt/dd70-remap/venv/bin/python3 /opt/dd70-remap/dd70-remapper-nolatency.py
 Restart=on-failure
 RestartSec=5
 Environment="PYTHONUNBUFFERED=1"
-
-# Limites pour l'audio temps réel
-LimitRTPRIO=99
-LimitMEMLOCK=infinity
 
 [Install]
 WantedBy=multi-user.target
@@ -89,16 +80,15 @@ echo "  Installation terminée!"
 echo "==================================================="
 echo
 echo "⚠️  IMPORTANT - Configuration du DD-70:"
-echo "   Sur votre module DD-70, réglez:"
-echo "   - Volume LOCAL à 0 (ou très bas)"
-echo "   - Volume AUX-IN à 80-100%"
+echo "   Sur votre module DD-70, vous DEVEZ régler:"
+echo "   - MIDI LOCAL CONTROL: OFF (pour éviter le double son)"
 echo
 echo "Commandes disponibles:"
 echo "  - Démarrer:  sudo systemctl start dd70-remap"
 echo "  - Arrêter:   sudo systemctl stop dd70-remap"
 echo "  - Statut:    sudo systemctl status dd70-remap"
-echo "  - Manuel:    /opt/dd70-remap/venv/bin/python3 /opt/dd70-remap/dd70-remap-synth.py"
+echo "  - Manuel:    /opt/dd70-remap/venv/bin/python3 /opt/dd70-remap/dd70-remapper-nolatency.py"
 echo "  - Logs:      sudo journalctl -u dd70-remap -f"
 echo
-echo "Note: Branchez le DD-70 en USB et la sortie jack du Pi sur AUX-IN"
-echo "      puis redémarrez le Pi ou lancez le service manuellement."
+echo "Note: Branchez simplement le DD-70 en USB au Raspberry Pi."
+echo "      Pas besoin de câble audio Jack."
