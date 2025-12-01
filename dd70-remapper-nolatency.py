@@ -70,12 +70,12 @@ class DD70RemapperNoLatency:
             # Cas spécial: ancien pad caisse claire (38/40) → Charleston avec pédale
             if msg.note in [38, 40]:
                 # Choisir charleston ouverte ou fermée selon la pédale
-                # Inversion de la logique : on suppose que 0 = Fermé (appuyé) et 127 = Ouvert (relâché)
-                # Si cela ne marche pas, c'est que la pédale n'envoie pas le CC#4
-                if self.hihat_openness < 64:
-                    new_note = 42  # Valeur basse (<64) -> Charleston fermée
+                # Logique : Pédale appuyée = Valeur haute (>64) = Fermé
+                #           Pédale relâchée = Valeur basse (<64) = Ouvert
+                if self.hihat_openness > 64:
+                    new_note = 42  # Pédale appuyée -> Charleston fermée
                 else:
-                    new_note = 46  # Valeur haute (>64) -> Charleston ouverte
+                    new_note = 46  # Pédale relâchée -> Charleston ouverte
                 return msg.copy(note=new_note)
             
             # Remapping standard pour les autres notes
