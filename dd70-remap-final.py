@@ -86,11 +86,29 @@ class SimpleRemapper:
             return False
     
     def find_fluidsynth_port(self):
-        """Trouve le port FluidSynth dans la liste mido"""
+        """Trouve le port FluidSynth dans la liste mido ou via aconnect"""
+        # D'abord chercher dans mido
         ports = mido.get_output_names()
         for port in ports:
             if 'FLUID' in port or 'Synth' in port:
                 return port
+        
+        # Si pas trouvé, chercher avec aconnect et utiliser le numéro de client
+        try:
+            result = subprocess.run(['aconnect', '-l'], capture_output=True, text=True)
+            for line in result.stdout.split('\n'):
+                if 'FLUID' in line:
+                    # Ligne format: "client 128: 'FLUID Synth (2339)' [type=user,pid=2339]"
+                    import re
+                    match = re.search(r'client (\d+):', line)
+                    if match:
+                        client_id = match.group(1)
+                        port_name = f"{client_id}:0"
+                        print(f"✓ FluidSynth trouvé via aconnect: {port_name}")
+                        return port_name
+        except Exception as e:
+            print(f"⚠️  Erreur recherche aconnect: {e}")
+        
         return None
     
     def connect(self):
